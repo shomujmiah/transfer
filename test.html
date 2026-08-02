@@ -1,48 +1,57 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Faizan Of Madina</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-</head>
-<body class="bg-[#fdfbf7] flex justify-center items-center min-h-screen m-0 p-5">
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbx96HUcW6fg2gwW6x1d9QNOsSpSGCrLfwCfWIe3PbshQ2q026wpbr-D_hvudqS9m1tIWA/exec';
 
-  <!-- Mobile Frame Container Card -->
-  <div class="w-full max-w-sm bg-white rounded-[32px] shadow-xl p-8 text-center space-y-6 border border-gray-100">
-    
-    <div class="w-16 h-16 bg-red-50 text-red-600 rounded-2xl mx-auto flex items-center justify-center text-2xl shadow-sm">
-      <i class="fa-solid fa-shield-halved"></i>
-    </div>
+    window.onload = function() {
+      fetchData();
+    };
 
-    <div class="space-y-2">
-      <h1 class="text-xl font-bold text-gray-900">Faizan Of Madina</h1>
-      <p class="text-xs text-gray-500">Secure Remittance Portal</p>
-    </div>
+    function fetchData(tabName = '') {
+      let url = `${WEB_APP_URL}?action=getAppData`;
+      if (tabName) url += `&tab=${tabName}`;
 
-    <div class="bg-gray-50 p-4 rounded-2xl text-left space-y-2 border border-gray-100">
-      <div class="flex items-center space-x-2 text-xs text-gray-600">
-        <i class="fa-solid fa-circle-check text-green-600"></i>
-        <span>Google Account Authentication</span>
-      </div>
-      <div class="flex items-center space-x-2 text-xs text-gray-600">
-        <i class="fa-solid fa-circle-check text-green-600"></i>
-        <span>Encrypted Register Sync</span>
-      </div>
-    </div>
+      fetch(url)
+        .then(response => response.json())
+        .then(data => renderData(data))
+        .catch(err => console.error('Error fetching data:', err));
+    }
 
-    <!-- Secure Sign In / Open Button -->
-    <a href="https://script.google.com/macros/s/AKfycbx96HUcW6fg2gwW6x1d9QNOsSpSGCrLfwCfWIe3PbshQ2q026wpbr-D_hvudqS9m1tIWA/exec" 
-       target="_blank" 
-       class="w-full bg-red-600 hover:bg-red-700 text-white py-3.5 rounded-2xl font-bold text-sm shadow-md transition-all flex items-center justify-center space-x-2 block">
-      <i class="fa-solid fa-right-to-bracket"></i>
-      <span>Open Secure Portal</span>
-    </a>
+    function loadAccountsSummary() {
+      const container = document.getElementById('accountsGrid');
+      container.innerHTML = `<div class="text-center text-gray-400 py-10 text-sm">Fetching account balances...</div>`;
 
-    <p class="text-[10px] text-gray-400">Copyright Choudary 2026</p>
+      fetch(`${WEB_APP_URL}?action=getSummary`)
+        .then(response => response.json())
+        .then(summaries => {
+          container.innerHTML = '';
+          if (!summaries || summaries.length === 0) {
+            container.innerHTML = `<div class="text-center text-gray-400 py-10 text-sm">No account data found or unauthorized.</div>`;
+            return;
+          }
 
-  </div>
+          summaries.forEach(acc => {
+            const card = document.createElement('div');
+            card.className = "bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center";
+            
+            card.innerHTML = `
+              <div>
+                <span class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Register Tab</span>
+                <h3 class="text-base font-bold text-gray-900 dark:text-white">${acc.tabName}</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Deposits: ৳${acc.deposits.toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
+                <p class="text-xs text-red-500 font-medium">Transferred: ৳${acc.transfers.toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
+              </div>
+              <div class="text-right">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Net Balance</span>
+                <h3 class="text-base font-ext500 text-red-600">৳${acc.balance.toLocaleString('en-IN', {minimumFractionDigits: 2})}</h3>
+                <button onclick="switchRegisterTab('${acc.tabName}'); switchTab('home');" class="mt-1 text-[11px] bg-red-50 text-red-600 hover:bg-red-100 dark:bg-gray-700 dark:text-red-400 px-2.5 py-1 rounded-lg font-bold transition-colors">Select Tab</button>
+              </div>
+            `;
+            container.appendChild(card);
+          });
+        })
+        .catch(err => {
+          container.innerHTML = `<div class="text-center text-red-500 py-10 text-sm">Failed to load accounts.</div>`;
+        });
+    }
 
-</body>
-</html>
+    function switchRegisterTab(tabName) {
+      fetchData(tabName);
+    }
