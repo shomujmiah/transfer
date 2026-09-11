@@ -1,7 +1,7 @@
 {
   "name": "Money Transfer",
   "short_name": "Transfer",
-  "start_url": "./index.html",
+  "start_url": "./moneytransfer.html",
   "display": "standalone",
   "background_color": "#fdfbf7",
   "theme_color": "#2563eb",
