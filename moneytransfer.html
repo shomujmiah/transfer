@@ -38,6 +38,9 @@
 
     // Listen for secure messages sent from the Google Apps Script iframe
     window.addEventListener("message", async function(event) {
+      // Optional: uncomment to verify origin if needed, or allow all for GAS subdomains
+      // if (!event.origin.includes("script.google.com")) return;
+
       if (event.data && event.data.type === "TRIGGER_ONESIGNAL_PUSH") {
         const email = event.data.email;
         if (email) {
@@ -45,13 +48,10 @@
         }
         window.OneSignalDeferred.push(async function(OneSignal) {
           try {
-            // 1. Force the native browser permission dialog directly
-            const permission = await OneSignal.Notifications.requestPermission();
-            console.log("Browser notification permission status:", permission);
-            
-            // 2. Also invoke the slidedown if supported
+            // Force native prompt & slidedown upon valid user button trigger
+            await OneSignal.Notifications.requestPermission();
             if (OneSignal.Slidedown && typeof OneSignal.Slidedown.promptPush === 'function') {
-              await OneSignal.Slidedown.promptPush();
+              await OneSignal.Slidedown.promptPush({ force: true });
             }
           } catch (e) {
             console.error("Error prompting push notifications:", e);
