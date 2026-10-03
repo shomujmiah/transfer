@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="Money Transfer">
   <link rel="icon" type="image/png" href="icon-192.png">
 
-  <!-- OneSignal SDK Initialization (No auto prompt on guest load) -->
+  <!-- OneSignal SDK Initialization -->
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
     window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -22,35 +22,36 @@
         allowLocalhostAsSecureOrigin: true
       });
 
-      // If already logged in from a previous session, re-apply the tag
       const savedEmail = localStorage.getItem('manualUserEmail');
       if (savedEmail) {
         tagAndLoginOneSignalUser(savedEmail);
       }
     });
 
-    // Helper to log in and set user tag securely
     async function tagAndLoginOneSignalUser(email) {
       window.OneSignalDeferred.push(async function(OneSignal) {
         const cleanEmail = email.toLowerCase().trim();
         await OneSignal.login(cleanEmail);
         await OneSignal.User.addTag("user_email", cleanEmail);
-        console.log("OneSignal successfully linked and tagged to user:", cleanEmail);
       });
     }
 
-    // Function called by the inner app after successful login to prompt and tag
-    window.activateUserNotifications = async function(email) {
-      await tagAndLoginOneSignalUser(email);
-      window.OneSignalDeferred.push(async function(OneSignal) {
-        try {
-          // Prompts user for push permissions once logged in
-          await OneSignal.Slidedown.promptPush();
-        } catch (e) {
-          console.error("Error prompting push notifications:", e);
+    // Listen for secure messages sent from the Google Apps Script iframe
+    window.addEventListener("message", async function(event) {
+      if (event.data && event.data.type === "TRIGGER_ONESIGNAL_PUSH") {
+        const email = event.data.email;
+        if (email) {
+          await tagAndLoginOneSignalUser(email);
         }
-      });
-    };
+        window.OneSignalDeferred.push(async function(OneSignal) {
+          try {
+            await OneSignal.Slidedown.promptPush();
+          } catch (e) {
+            console.error("Error prompting push notifications:", e);
+          }
+        });
+      }
+    });
   </script>
 
   <style>
