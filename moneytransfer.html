@@ -3,19 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Money Transfer</title>
+  <title>Money Transfer Portal</title>
   
   <!-- PWA Manifest Link -->
   <link rel="manifest" href="manifest.json">
   
-  <!-- Apple Touch & Mobile Icons (for iOS home screen shortcuts) -->
+  <!-- Apple Touch & Mobile Icons -->
   <link rel="apple-touch-icon" href="icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Money Transfer">
-
-  <!-- Standard Favicon -->
   <link rel="icon" type="image/png" href="icon-192.png">
+
+  <!-- OneSignal SDK Integration -->
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  <script>
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    window.OneSignalDeferred.push(async function(OneSignal) {
+      await OneSignal.init({
+        appId: "YOUR_ONESIGNAL_APP_ID_HERE", // <-- Replace with your OneSignal App ID
+        safari_web_id: "YOUR_SAFARI_WEB_ID_HERE", // Optional: if using Safari push
+        notifyButton: {
+          enable: true,
+        },
+        allowLocalhostAsSecureOrigin: true // Useful for local testing
+      });
+
+      // Automatically tag OneSignal user if email session exists locally
+      const savedEmail = localStorage.getItem('manualUserEmail');
+      if (savedEmail) {
+        OneSignal.User.addTag("user_email", savedEmail);
+        console.log("OneSignal tagged user email:", savedEmail);
+      }
+    });
+  </script>
 
   <style>
     html, body {
