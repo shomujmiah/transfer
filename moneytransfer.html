@@ -45,7 +45,14 @@
         }
         window.OneSignalDeferred.push(async function(OneSignal) {
           try {
-            await OneSignal.Slidedown.promptPush();
+            // 1. Force the native browser permission dialog directly
+            const permission = await OneSignal.Notifications.requestPermission();
+            console.log("Browser notification permission status:", permission);
+            
+            // 2. Also invoke the slidedown if supported
+            if (OneSignal.Slidedown && typeof OneSignal.Slidedown.promptPush === 'function') {
+              await OneSignal.Slidedown.promptPush();
+            }
           } catch (e) {
             console.error("Error prompting push notifications:", e);
           }
