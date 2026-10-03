@@ -20,6 +20,12 @@
       await OneSignal.init({
         appId: "6b447a69-bc05-4b52-9321-b1edba94e51c",
         allowLocalhostAsSecureOrigin: true
+      // Disable automatic prompts so it never shows up for guests
+        promptOptions: {
+          slidedown: {
+            enabled: false
+          }
+        }
       });
 
       const savedEmail = localStorage.getItem('manualUserEmail');
