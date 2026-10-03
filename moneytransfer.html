@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="Money Transfer">
   <link rel="icon" type="image/png" href="icon-192.png">
 
-  <!-- OneSignal SDK Integration -->
+  <!-- OneSignal SDK Initialization (No auto prompt on guest load) -->
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
     window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -22,24 +22,35 @@
         allowLocalhostAsSecureOrigin: true
       });
 
-      // Automatically tag OneSignal user if email session exists locally
+      // If already logged in from a previous session, re-apply the tag
       const savedEmail = localStorage.getItem('manualUserEmail');
       if (savedEmail) {
-        OneSignal.User.addTag("user_email", savedEmail.toLowerCase().trim());
-        await OneSignal.login(savedEmail.toLowerCase().trim());
+        tagAndLoginOneSignalUser(savedEmail);
       }
     });
 
-    // Function to force-trigger the subscription prompt on user click
-    function promptForPushNotifications() {
+    // Helper to log in and set user tag securely
+    async function tagAndLoginOneSignalUser(email) {
       window.OneSignalDeferred.push(async function(OneSignal) {
-        try {
-          await OneSignal.Slidedown.promptPush();
-        } catch (e) {
-          console.error("Error prompting push:", e);
-        }
+        const cleanEmail = email.toLowerCase().trim();
+        await OneSignal.login(cleanEmail);
+        await OneSignal.User.addTag("user_email", cleanEmail);
+        console.log("OneSignal successfully linked and tagged to user:", cleanEmail);
       });
     }
+
+    // Function called by the inner app after successful login to prompt and tag
+    window.activateUserNotifications = async function(email) {
+      await tagAndLoginOneSignalUser(email);
+      window.OneSignalDeferred.push(async function(OneSignal) {
+        try {
+          // Prompts user for push permissions once logged in
+          await OneSignal.Slidedown.promptPush();
+        } catch (e) {
+          console.error("Error prompting push notifications:", e);
+        }
+      });
+    };
   </script>
 
   <style>
@@ -57,36 +68,9 @@
       border: none;
       display: block;
     }
-    /* Floating Notification Bell Widget for easy subscription */
-    .notif-bell-floating {
-      position: fixed;
-      bottom: 85px;
-      right: 20px;
-      z-index: 9999;
-      background: #e11d48;
-      color: white;
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 4px 12px rgba(225, 29, 72, 0.4);
-      cursor: pointer;
-      border: none;
-      transition: transform 0.2s;
-    }
-    .notif-bell-floating:active {
-      transform: scale(0.92);
-    }
   </style>
 </head>
 <body>
-  <!-- Floating button to guarantee users can trigger the prompt anytime -->
-  <button onclick="promptForPushNotifications()" class="notif-bell-floating" title="Enable Push Notifications">
-    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-  </button>
-
   <iframe src="https://script.google.com/macros/s/AKfycbx96HUcW6fg2gwW6x1d9QNOsSpSGCrLfwCfWIe3PbshQ2q026wpbr-D_hvudqS9m1tIWA/exec"></iframe>
 </body>
 </html>
