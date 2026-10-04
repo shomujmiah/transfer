@@ -47,38 +47,55 @@
 
     // Secure message listener from the top-level iframe bridge
     window.addEventListener("message", async function(event) {
-  if (event.data && event.data.type === "TRIGGER_ONESIGNAL_PUSH") {
-    const email = event.data.email;
-    
-    window.OneSignalDeferred.push(async function(OneSignal) {
-      try {
-        if (email) {
-          await OneSignal.login(email.toLowerCase().trim());
-        }
-        await OneSignal.Notifications.requestPermission();
-      } catch (e) {
-        console.error("Error triggering push prompt:", e);
+      if (event.data && event.data.type === "TRIGGER_ONESIGNAL_PUSH") {
+        const email = event.data.email;
+        
+        window.OneSignalDeferred.push(async function(OneSignal) {
+          try {
+            if (email) {
+              await OneSignal.login(email.toLowerCase().trim());
+            }
+            await OneSignal.Notifications.requestPermission();
+          } catch (e) {
+            console.error("Error triggering push prompt:", e);
+          }
+        });
       }
-    });
-  }
 
-  // Handle tag updates safely from the iframe
-  if (event.data && event.data.type === "UPDATE_ONESIGNAL_TAG") {
-    const { tagKey, tagValue, email } = event.data;
-    
-    window.OneSignalDeferred.push(async function(OneSignal) {
-      try {
-        if (email) {
-          await OneSignal.login(email.toLowerCase().trim());
-        }
-        await OneSignal.User.addTag(tagKey, tagValue);
-        console.log(`Successfully updated OneSignal tag [${tagKey}] ->`, tagValue);
-      } catch (err) {
-        console.error("OneSignal tag update error:", err);
+      // Handle single tag updates safely from the iframe
+      if (event.data && event.data.type === "UPDATE_ONESIGNAL_TAG") {
+        const { tagKey, tagValue, email } = event.data;
+        
+        window.OneSignalDeferred.push(async function(OneSignal) {
+          try {
+            if (email) {
+              await OneSignal.login(email.toLowerCase().trim());
+            }
+            await OneSignal.User.addTag(tagKey, tagValue);
+            console.log(`Successfully updated OneSignal tag [${tagKey}] ->`, tagValue);
+          } catch (err) {
+            console.error("OneSignal tag update error:", err);
+          }
+        });
+      }
+
+      // Handle multiple tag updates safely from the iframe (e.g., transaction saved)
+      if (event.data && event.data.type === "UPDATE_ONESIGNAL_MULTIPLE_TAGS") {
+        const { email, tags } = event.data;
+        
+        window.OneSignalDeferred.push(async function(OneSignal) {
+          try {
+            if (email) {
+              await OneSignal.login(email.toLowerCase().trim());
+            }
+            await OneSignal.User.addTags(tags);
+            console.log("Transaction activity tags updated in OneSignal.");
+          } catch (err) {
+            console.error("OneSignal multi-tag update error:", err);
+          }
+        });
       }
     });
-  }
-});
   </script>
 
   <style>
