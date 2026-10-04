@@ -47,9 +47,9 @@
 
     // Secure message listener from the top-level iframe bridge
     window.addEventListener("message", async function(event) {
-      // Allow messages safely from official Google Apps Script domains
+      // Allow messages safely from Google domains hosting your Apps Script app
       const origin = event.origin || "";
-      if (!origin.includes("script.google.com") && !origin.includes("googleusercontent.com")) {
+      if (!origin.includes("google.com") && !origin.includes("googleusercontent.com")) {
         console.warn("dropping postMessage from unexpected origin:", origin);
         return;
       }
@@ -71,7 +71,6 @@
         });
       }
 
-      // Handle single tag updates safely from the iframe
       if (event.data && event.data.type === "UPDATE_ONESIGNAL_TAG") {
         const { tagKey, tagValue, email } = event.data;
         
@@ -88,7 +87,6 @@
         });
       }
 
-      // Handle multiple tag updates safely from the iframe (e.g., transaction saved)
       if (event.data && event.data.type === "UPDATE_ONESIGNAL_MULTIPLE_TAGS") {
         const { email, tags } = event.data;
         
