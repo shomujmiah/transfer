@@ -47,6 +47,15 @@
 
     // Secure message listener from the top-level iframe bridge
     window.addEventListener("message", async function(event) {
+      // Allow messages safely from official Google Apps Script domains
+      const origin = event.origin || "";
+      if (!origin.includes("script.google.com") && !origin.includes("googleusercontent.com")) {
+        console.warn("dropping postMessage from unexpected origin:", origin);
+        return;
+      }
+
+      console.log("Received valid postMessage from GAS:", event.data);
+
       if (event.data && event.data.type === "TRIGGER_ONESIGNAL_PUSH") {
         const email = event.data.email;
         
