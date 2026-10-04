@@ -15,16 +15,18 @@
   <!-- OneSignal SDK Integration -->
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
+    console.log("DIAGNOSTIC: Outer wrapper script loaded.");
+
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     window.OneSignalDeferred.push(async function(OneSignal) {
       await OneSignal.init({
-        appId: "6b447a69-bc05-4b52-9321-b1edba94e51c", // <-- Ensure this matches your active OneSignal Dashboard App ID
+        appId: "6b447a69-bc05-4b52-9321-b1edba94e51c", // Ensure this matches your active OneSignal Dashboard App ID
         allowLocalhostAsSecureOrigin: true
       });
 
       const savedEmail = localStorage.getItem('manualUserEmail');
       if (savedEmail) {
-        await tagAndLoginUser(OneSignal, savedEmail);
+        tagAndLoginUser(OneSignal, savedEmail);
       }
     });
 
@@ -33,7 +35,7 @@
         const cleanEmail = email.toLowerCase().trim();
         await OneSignal.login(cleanEmail);
         await OneSignal.User.addTag("user_email", cleanEmail);
-        console.log("OneSignal successfully linked to:", cleanEmail);
+        console.log("DIAGNOSTIC: OneSignal successfully tagged user email ->", cleanEmail);
       } catch (err) {
         console.error("OneSignal login/tag error:", err);
       }
@@ -41,6 +43,8 @@
 
     // Secure message listener from the top-level iframe bridge
     window.addEventListener("message", async function(event) {
+      console.log("DIAGNOSTIC: Outer wrapper received postMessage:", event.data);
+
       if (event.data && event.data.type === "TRIGGER_ONESIGNAL_PUSH") {
         const email = event.data.email;
         
@@ -50,14 +54,24 @@
               await tagAndLoginUser(OneSignal, email);
             }
             
+            // Check current browser permission state first
+            const currentPermission = OneSignal.Notifications.permission;
+            console.log("Current notification permission state:", currentPermission);
+
+            if (currentPermission === false) {
+              alert("Notifications are blocked by your browser settings. Please click the lock icon next to the URL in your address bar, allow notifications, and try again.");
+              return;
+            }
+
+            console.log("DIAGNOSTIC: Requesting OneSignal push permissions...");
             const permission = await OneSignal.Notifications.requestPermission();
-            console.log("Permission request result:", permission);
+            console.log("DIAGNOSTIC: Permission result:", permission);
             
-            if (permission && OneSignal.Slidedown) {
+            if (OneSignal.Slidedown) {
               await OneSignal.Slidedown.promptPush();
             }
           } catch (e) {
-            console.error("Error triggering push prompt:", e);
+            console.error("DIAGNOSTIC ERROR triggering prompt:", e);
           }
         });
       }
@@ -82,6 +96,7 @@
   </style>
 </head>
 <body>
+  <!-- Replace with your exact Google Apps Script Web App Deployment URL -->
   <iframe src="https://script.google.com/macros/s/AKfycbx96HUcW6fg2gwW6x1d9QNOsSpSGCrLfwCfWIe3PbshQ2q026wpbr-D_hvudqS9m1tIWA/exec"></iframe>
 </body>
 </html>
