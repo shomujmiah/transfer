@@ -7,22 +7,28 @@
   
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
+  
+  <!-- Standard & Apple web app capability tags -->
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Money Transfer">
   <link rel="icon" type="image/png" href="icon-192.png">
 
+  <!-- Optional: Clean up third-party OneSignal postMessage console logs -->
+  <script>
+    const originalWarn = console.warn;
+    console.warn = function(...args) {
+      if (args[0] && typeof args[0] === 'string' && args[0].includes('dropping postMessage')) {
+        return;
+      }
+      originalWarn.apply(console, args);
+    };
+  </script>
+
   <!-- OneSignal SDK Integration -->
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
-    // Silence external OneSignal postMessage warnings
-const originalWarn = console.warn;
-console.warn = function(...args) {
-  if (args[0] && typeof args[0] === 'string' && args[0].includes('dropping postMessage')) {
-    return; // Ignore this specific library warning
-  }
-  originalWarn.apply(console, args);
-};
     console.log("DIAGNOSTIC: Outer wrapper script loaded.");
 
     window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -54,20 +60,12 @@ console.warn = function(...args) {
     }
 
     // Secure message listener from the top-level iframe bridge
-    // Secure message listener with full diagnostics
     window.addEventListener("message", async function(event) {
-      console.log("DIAGNOSTIC: Received postMessage from origin:", event.origin);
-      console.log("DIAGNOSTIC: Message payload content:", event.data);
-
       const origin = event.origin || "";
-      
-      // Let's temporarily accept and log everything to see what exact domain Google Apps Script is using
       if (!origin.includes("google.com") && !origin.includes("googleusercontent.com") && !origin.includes("localhost")) {
-        console.warn("DROPPING message from unhandled origin:", origin);
+        console.warn("dropping message from unhandled origin:", origin);
         return;
       }
-
-      console.log("SUCCESS: Message accepted from valid origin!");
 
       if (event.data && event.data.type === "TRIGGER_ONESIGNAL_PUSH") {
         const email = event.data.email;
@@ -84,6 +82,7 @@ console.warn = function(...args) {
         });
       }
 
+      // Handle single tag updates safely from the iframe
       if (event.data && event.data.type === "UPDATE_ONESIGNAL_TAG") {
         const { tagKey, tagValue, email } = event.data;
         
@@ -100,6 +99,7 @@ console.warn = function(...args) {
         });
       }
 
+      // Handle multiple tag updates safely from the iframe (e.g., transaction saved)
       if (event.data && event.data.type === "UPDATE_ONESIGNAL_MULTIPLE_TAGS") {
         const { email, tags } = event.data;
         
