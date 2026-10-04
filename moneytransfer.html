@@ -15,6 +15,14 @@
   <!-- OneSignal SDK Integration -->
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
+    // Silence external OneSignal postMessage warnings
+const originalWarn = console.warn;
+console.warn = function(...args) {
+  if (args[0] && typeof args[0] === 'string' && args[0].includes('dropping postMessage')) {
+    return; // Ignore this specific library warning
+  }
+  originalWarn.apply(console, args);
+};
     console.log("DIAGNOSTIC: Outer wrapper script loaded.");
 
     window.OneSignalDeferred = window.OneSignalDeferred || [];
