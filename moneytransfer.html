@@ -46,15 +46,20 @@
     }
 
     // Secure message listener from the top-level iframe bridge
+    // Secure message listener with full diagnostics
     window.addEventListener("message", async function(event) {
-      // Allow messages safely from Google domains hosting your Apps Script app
+      console.log("DIAGNOSTIC: Received postMessage from origin:", event.origin);
+      console.log("DIAGNOSTIC: Message payload content:", event.data);
+
       const origin = event.origin || "";
-      if (!origin.includes("google.com") && !origin.includes("googleusercontent.com")) {
-        console.warn("dropping postMessage from unexpected origin:", origin);
+      
+      // Let's temporarily accept and log everything to see what exact domain Google Apps Script is using
+      if (!origin.includes("google.com") && !origin.includes("googleusercontent.com") && !origin.includes("localhost")) {
+        console.warn("DROPPING message from unhandled origin:", origin);
         return;
       }
 
-      console.log("Received valid postMessage from GAS:", event.data);
+      console.log("SUCCESS: Message accepted from valid origin!");
 
       if (event.data && event.data.type === "TRIGGER_ONESIGNAL_PUSH") {
         const email = event.data.email;
