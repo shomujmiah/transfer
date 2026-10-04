@@ -19,12 +19,12 @@
 
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     window.OneSignalDeferred.push(async function(OneSignal) {
-      console.log("DIAGNOSTIC: OneSignal initialized successfully.");
       await OneSignal.init({
         appId: "6b447a69-bc05-4b52-9321-b1edba94e51c",
         allowLocalhostAsSecureOrigin: true
       });
 
+      // Sync user tag on boot if email session is found locally
       const savedEmail = localStorage.getItem('manualUserEmail');
       if (savedEmail) {
         tagAndLoginOneSignalUser(savedEmail);
@@ -40,26 +40,20 @@
       });
     }
 
-    // Secure message listener from the Google Apps Script iframe
-    window.addEventListener("message", async function(event) {
-      console.log("DIAGNOSTIC: Outer wrapper received postMessage event:", event.data);
-
-      if (event.data && event.data.type === "TRIGGER_ONESIGNAL_PUSH") {
-        const email = event.data.email;
+    // Watch for localStorage trigger flags from the inner iframe app
+    window.addEventListener("storage", async function(event) {
+      if (event.key === "TRIGGER_ONESIGNAL_FLAG" && event.newValue) {
+        const email = localStorage.getItem('manualUserEmail');
+        console.log("DIAGNOSTIC: Storage trigger detected for email:", email);
         
-        // Show a temporary debug notice on the outer screen
-        showOuterDebugBanner("Trigger received for: " + (email || "unknown"));
-
         if (email) {
           await tagAndLoginOneSignalUser(email);
         }
         
         window.OneSignalDeferred.push(async function(OneSignal) {
           try {
-            console.log("DIAGNOSTIC: Requesting OneSignal push permissions...");
             const permission = await OneSignal.Notifications.requestPermission();
             console.log("DIAGNOSTIC: Permission result:", permission);
-            
             if (OneSignal.Slidedown) {
               await OneSignal.Slidedown.promptPush();
             }
@@ -67,20 +61,11 @@
             console.error("DIAGNOSTIC ERROR triggering prompt:", e);
           }
         });
+        
+        // Clear the flag so it can be re-triggered later if needed
+        localStorage.removeItem("TRIGGER_ONESIGNAL_FLAG");
       }
     });
-
-    function showOuterDebugBanner(text) {
-      let banner = document.getElementById('debugBanner');
-      if (!banner) {
-        banner = document.createElement('div');
-        banner.id = 'debugBanner';
-        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#10b981;color:white;text-align:center;font-size:12px;font-weight:bold;padding:6px;z-index:99999;';
-        document.body.prepend(banner);
-      }
-      banner.textContent = "DEBUG: " + text;
-      setTimeout(() => banner.remove(), 4000);
-    }
   </script>
 
   <style>
@@ -101,6 +86,7 @@
   </style>
 </head>
 <body>
+  <!-- Replace with your exact Google Apps Script Web App Deployment URL -->
   <iframe src="https://script.google.com/macros/s/AKfycbx96HUcW6fg2gwW6x1d9QNOsSpSGCrLfwCfWIe3PbshQ2q026wpbr-D_hvudqS9m1tIWA/exec"></iframe>
 </body>
 </html>
