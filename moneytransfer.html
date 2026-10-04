@@ -15,8 +15,6 @@
   <!-- OneSignal SDK Integration -->
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
-    console.log("DIAGNOSTIC: Outer wrapper script loaded.");
-
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     window.OneSignalDeferred.push(async function(OneSignal) {
       await OneSignal.init({
@@ -24,45 +22,36 @@
         allowLocalhostAsSecureOrigin: true
       });
 
-      // Sync user tag on boot if email session is found locally
+      // Check if user is already logged in on boot
       const savedEmail = localStorage.getItem('manualUserEmail');
       if (savedEmail) {
-        tagAndLoginOneSignalUser(savedEmail);
+        await OneSignal.login(savedEmail.toLowerCase().trim());
+        await OneSignal.User.addTag("user_email", savedEmail.toLowerCase().trim());
       }
     });
 
-    async function tagAndLoginOneSignalUser(email) {
-      window.OneSignalDeferred.push(async function(OneSignal) {
-        const cleanEmail = email.toLowerCase().trim();
-        await OneSignal.login(cleanEmail);
-        await OneSignal.User.addTag("user_email", cleanEmail);
-        console.log("DIAGNOSTIC: OneSignal tagged user email ->", cleanEmail);
-      });
-    }
-
-    // Watch for localStorage trigger flags from the inner iframe app
+    // Listen for storage triggers from the inner Apps Script iframe
     window.addEventListener("storage", async function(event) {
       if (event.key === "TRIGGER_ONESIGNAL_FLAG" && event.newValue) {
-        const email = localStorage.getItem('manualUserEmail');
-        console.log("DIAGNOSTIC: Storage trigger detected for email:", email);
+        const email = localStorage.getItem("onesignal_target_email") || localStorage.getItem('manualUserEmail');
         
         if (email) {
-          await tagAndLoginOneSignalUser(email);
-        }
-        
-        window.OneSignalDeferred.push(async function(OneSignal) {
-          try {
-            const permission = await OneSignal.Notifications.requestPermission();
-            console.log("DIAGNOSTIC: Permission result:", permission);
-            if (OneSignal.Slidedown) {
-              await OneSignal.Slidedown.promptPush();
+          window.OneSignalDeferred.push(async function(OneSignal) {
+            try {
+              const cleanEmail = email.toLowerCase().trim();
+              await OneSignal.login(cleanEmail);
+              await OneSignal.User.addTag("user_email", cleanEmail);
+              
+              // Request push permission directly
+              await OneSignal.Notifications.requestPermission();
+              if (OneSignal.Slidedown) {
+                await OneSignal.Slidedown.promptPush();
+              }
+            } catch (e) {
+              console.error("Error requesting OneSignal permission:", e);
             }
-          } catch (e) {
-            console.error("DIAGNOSTIC ERROR triggering prompt:", e);
-          }
-        });
-        
-        // Clear the flag so it can be re-triggered later if needed
+          });
+        }
         localStorage.removeItem("TRIGGER_ONESIGNAL_FLAG");
       }
     });
