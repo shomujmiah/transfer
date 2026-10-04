@@ -47,61 +47,43 @@
     window.addEventListener("message", async function(event) {
       const origin = event.origin || "";
       
-      // Allow messages from Google Apps Script, local development, and your GitHub Pages domain
       if (!origin.includes("google.com") && 
           !origin.includes("googleusercontent.com") && 
           !origin.includes("localhost") && 
           !origin.includes("shomujmiah.github.io")) {
-        console.warn("DIAGNOSTIC: Dropped message from unexpected origin:", origin);
-        return;
+        return; // Ignore unwanted origins silently
       }
 
-      console.log("DIAGNOSTIC: Received valid message type ->", event.data && event.data.type);
+      const data = event.data;
+      if (!data || !data.type) return; // Silently ignore messages without a valid type
 
-      if (event.data && event.data.type === "TRIGGER_ONESIGNAL_PUSH") {
-        const email = event.data.email;
-        
+      console.log("DIAGNOSTIC: Received valid message type ->", data.type);
+
+      if (data.type === "TRIGGER_ONESIGNAL_PUSH") {
+        const email = data.email;
         window.OneSignalDeferred.push(async function(OneSignal) {
           try {
             if (email) {
               await OneSignal.login(email.toLowerCase().trim());
             }
-            const permission = await OneSignal.Notifications.requestPermission();
-            console.log("DIAGNOSTIC: Push permission status ->", permission);
+            await OneSignal.Notifications.requestPermission();
           } catch (e) {
-            console.error("DIAGNOSTIC: Error triggering push prompt:", e);
+            console.error("OneSignal push error:", e);
           }
         });
       }
 
-      if (event.data && event.data.type === "UPDATE_ONESIGNAL_TAG") {
-        const { tagKey, tagValue, email } = event.data;
-        
-        window.OneSignalDeferred.push(async function(OneSignal) {
-          try {
-            if (email) {
-              await OneSignal.login(email.toLowerCase().trim());
-            }
-            await OneSignal.User.addTag(tagKey, tagValue);
-            console.log(`DIAGNOSTIC: Successfully updated OneSignal tag [${tagKey}] ->`, tagValue);
-          } catch (err) {
-            console.error("DIAGNOSTIC: OneSignal tag update error:", err);
-          }
-        });
-      }
-
-      if (event.data && event.data.type === "UPDATE_ONESIGNAL_MULTIPLE_TAGS") {
-        const { email, tags } = event.data;
-        
+      if (data.type === "UPDATE_ONESIGNAL_MULTIPLE_TAGS") {
+        const { email, tags } = data;
         window.OneSignalDeferred.push(async function(OneSignal) {
           try {
             if (email) {
               await OneSignal.login(email.toLowerCase().trim());
             }
             await OneSignal.User.addTags(tags);
-            console.log("DIAGNOSTIC: Transaction activity tags updated in OneSignal.");
+            console.log("DIAGNOSTIC: Successfully updated tags in OneSignal.");
           } catch (err) {
-            console.error("DIAGNOSTIC: OneSignal multi-tag update error:", err);
+            console.error("OneSignal tag error:", err);
           }
         });
       }
