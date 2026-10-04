@@ -43,12 +43,16 @@
       }
     }
 
-    // Secure message listener from the iframe
+    // Secure message listener with diagnostics
     window.addEventListener("message", async function(event) {
       const origin = event.origin || "";
       if (!origin.includes("google.com") && !origin.includes("googleusercontent.com") && !origin.includes("localhost")) {
+        console.warn("DIAGNOSTIC: Dropped message from unexpected origin:", origin);
         return;
       }
+
+      console.log("DIAGNOSTIC: Received message type ->", event.data && event.data.type);
+      console.log("DIAGNOSTIC: Full message payload ->", event.data);
 
       if (event.data && event.data.type === "TRIGGER_ONESIGNAL_PUSH") {
         const email = event.data.email;
@@ -58,9 +62,10 @@
             if (email) {
               await OneSignal.login(email.toLowerCase().trim());
             }
-            await OneSignal.Notifications.requestPermission();
+            const permission = await OneSignal.Notifications.requestPermission();
+            console.log("DIAGNOSTIC: Push permission status ->", permission);
           } catch (e) {
-            console.error("Error triggering push prompt:", e);
+            console.error("DIAGNOSTIC: Error triggering push prompt:", e);
           }
         });
       }
@@ -74,8 +79,9 @@
               await OneSignal.login(email.toLowerCase().trim());
             }
             await OneSignal.User.addTag(tagKey, tagValue);
+            console.log(`DIAGNOSTIC: Successfully updated OneSignal tag [${tagKey}] ->`, tagValue);
           } catch (err) {
-            console.error("OneSignal tag update error:", err);
+            console.error("DIAGNOSTIC: OneSignal tag update error:", err);
           }
         });
       }
@@ -89,8 +95,9 @@
               await OneSignal.login(email.toLowerCase().trim());
             }
             await OneSignal.User.addTags(tags);
+            console.log("DIAGNOSTIC: Transaction activity tags updated in OneSignal.");
           } catch (err) {
-            console.error("OneSignal multi-tag update error:", err);
+            console.error("DIAGNOSTIC: OneSignal multi-tag update error:", err);
           }
         });
       }
