@@ -20,8 +20,12 @@
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     window.OneSignalDeferred.push(async function(OneSignal) {
       await OneSignal.init({
-        appId: "6b447a69-bc05-4b52-9321-b1edba94e51c", // Ensure this matches your active OneSignal Dashboard App ID
-        allowLocalhostAsSecureOrigin: true
+        appId: "6b447a69-bc05-4b52-9321-b1edba94e51c",
+        allowLocalhostAsSecureOrigin: true,
+        // Explicitly point to the /transfer/ subdirectory for GitHub Pages
+        serviceWorkerPath: "transfer/OneSignalSDK.worker.js",
+        serviceWorkerParam: { scope: "/transfer/" },
+        serviceWorkerScope: "/transfer/"
       });
 
       const savedEmail = localStorage.getItem('manualUserEmail');
@@ -54,7 +58,6 @@
               await tagAndLoginUser(OneSignal, email);
             }
             
-            // Check current browser permission state first
             const currentPermission = OneSignal.Notifications.permission;
             console.log("Current notification permission state:", currentPermission);
 
@@ -96,7 +99,6 @@
   </style>
 </head>
 <body>
-  <!-- Replace with your exact Google Apps Script Web App Deployment URL -->
   <iframe src="https://script.google.com/macros/s/AKfycbx96HUcW6fg2gwW6x1d9QNOsSpSGCrLfwCfWIe3PbshQ2q026wpbr-D_hvudqS9m1tIWA/exec"></iframe>
 </body>
 </html>
