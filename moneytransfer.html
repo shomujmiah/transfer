@@ -14,101 +14,12 @@
   <meta name="apple-mobile-web-app-title" content="Money Transfer">
   <link rel="icon" type="image/png" href="icon-192.png">
 
-  <!-- OneSignal SDK Integration -->
-  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
-    window.OneSignalDeferred = window.OneSignalDeferred || [];
-    window.OneSignalDeferred.push(async function(OneSignal) {
-      await OneSignal.init({
-        appId: "6b447a69-bc05-4b52-9321-b1edba94e51c",
-        allowLocalhostAsSecureOrigin: true,
-        serviceWorkerPath: "transfer/OneSignalSDK.worker.js",
-        serviceWorkerParam: { scope: "/transfer/" },
-        serviceWorkerScope: "/transfer/"
-      });
-
-      const savedEmail = localStorage.getItem('manualUserEmail');
-      if (savedEmail) {
-        tagAndLoginUser(OneSignal, savedEmail);
-      }
-    });
-
-    async function tagAndLoginUser(OneSignal, email) {
-      try {
-        const cleanEmail = email.toLowerCase().trim();
-        await OneSignal.login(cleanEmail);
-        await OneSignal.User.addTag("user_email", cleanEmail);
-      } catch (err) {
-        console.error("OneSignal login/tag error:", err);
-      }
-    }
-
-    // Secure message listener with GitHub Pages origin support
-    window.addEventListener("message", async function(event) {
-      const origin = event.origin || "";
-      
-      if (!origin.includes("google.com") && 
-          !origin.includes("googleusercontent.com") && 
-          !origin.includes("localhost") && 
-          !origin.includes("shomujmiah.github.io")) {
-        return; // Ignore unwanted origins silently
-      }
-
-      const data = event.data;
-      if (!data || !data.type) return; // Silently ignore messages without a valid type
-
-      console.log("DIAGNOSTIC: Received valid message type ->", data.type);
-
-      if (data.type === "TRIGGER_ONESIGNAL_PUSH") {
-        const email = data.email;
-        window.OneSignalDeferred.push(async function(OneSignal) {
-          try {
-            if (email) {
-              await OneSignal.login(email.toLowerCase().trim());
-            }
-            await OneSignal.Notifications.requestPermission();
-          } catch (e) {
-            console.error("OneSignal push error:", e);
-          }
-        });
-      }
-
-      if (data.type === "UPDATE_ONESIGNAL_MULTIPLE_TAGS") {
-        const { email, tags } = data;
-        window.OneSignalDeferred.push(async function(OneSignal) {
-          try {
-            if (email) {
-              await OneSignal.login(email.toLowerCase().trim());
-            }
-            await OneSignal.User.addTags(tags);
-            console.log("DIAGNOSTIC: Successfully updated tags in OneSignal.");
-          } catch (err) {
-            console.error("OneSignal tag error:", err);
-          }
-        });
-      }
-    });
+    // Redirect top-level window directly to your Apps Script URL
+    window.location.replace("https://script.google.com/macros/s/AKfycbx96HUcW6fg2gwW6x1d9QNOsSpSGCrLfwCfWIe3PbshQ2q026wpbr-D_hvudqS9m1tIWA/exec");
   </script>
-
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background-color: #fdfbf7;
-    }
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-      display: block;
-    }
-  </style>
 </head>
 <body>
-  <iframe src="https://script.google.com/macros/s/AKfycbx96HUcW6fg2gwW6x1d9QNOsSpSGCrLfwCfWIe3PbshQ2q026wpbr-D_hvudqS9m1tIWA/exec" 
-          allow="publickey-credentials-create *; publickey-credentials-get *; camera *; microphone *; geolocation *"></iframe>
+  <p style="text-align:center; margin-top:50px; font-family:sans-serif; color:#666;">Loading Money Transfer Portal...</p>
 </body>
 </html>
