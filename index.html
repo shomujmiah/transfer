@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Money Transfer</title>
+  <title>Money Transfer Portal</title>
   
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
@@ -14,12 +14,231 @@
   <meta name="apple-mobile-web-app-title" content="Money Transfer">
   <link rel="icon" type="image/png" href="icon-192.png">
 
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- OneSignal SDK Integration -->
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
-    // Redirect top-level window directly to your Apps Script URL
-    window.location.replace("https://script.google.com/macros/s/AKfycbx96HUcW6fg2gwW6x1d9QNOsSpSGCrLfwCfWIe3PbshQ2q026wpbr-D_hvudqS9m1tIWA/exec");
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    window.OneSignalDeferred.push(async function(OneSignal) {
+      await OneSignal.init({
+        appId: "6b447a69-bc05-4b52-9321-b1edba94e51c",
+        allowLocalhostAsSecureOrigin: true,
+        serviceWorkerPath: "OneSignalSDK.worker.js",
+        serviceWorkerParam: { scope: "/transfer/" },
+        serviceWorkerScope: "/transfer/"
+      });
+    });
   </script>
 </head>
-<body>
-  <p style="text-align:center; margin-top:50px; font-family:sans-serif; color:#666;">Loading Money Transfer Portal...</p>
+<body class="bg-[#fdfbf7] min-h-screen text-slate-800 flex flex-col justify-between">
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed top-4 left-4 right-4 z-50 flex flex-col items-center pointer-events-none"></div>
+
+  <!-- Header -->
+  <header class="w-full bg-white border-b border-slate-200 px-4 py-3 flex justify-between items-center shadow-sm">
+    <h1 class="font-bold text-lg text-slate-900">Money Transfer Portal</h1>
+    <span id="connectionStatus" class="text-xs px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 font-medium">Connecting...</span>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="flex-1 max-w-md w-full mx-auto p-4 space-y-4">
+    
+    <!-- Biometric Settings Card -->
+    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+      <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Security & Biometrics</h2>
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="font-medium text-slate-800">Biometric Login (FaceID / TouchID)</p>
+          <p class="text-xs text-slate-500">Secure your portal access instantly</p>
+        </div>
+        <button id="biometricSetupBtn" onclick="setupBiometrics()" class="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-600 font-bold border border-indigo-200 text-sm active:scale-95 transition">
+          Register
+        </button>
+      </div>
+      <button id="biometricUnlockBtn" onclick="authenticateBiometrics()" class="w-full hidden mt-2 py-2.5 rounded-xl bg-emerald-600 text-white font-semibold shadow-sm active:scale-95 transition">
+        Unlock with Biometrics
+      </button>
+    </div>
+
+    <!-- Example Action Card / Form -->
+    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+      <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Data Sync</h2>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">User Email / Identifier</label>
+        <input type="email" id="userEmailInput" placeholder="name@example.com" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      </div>
+      <button onclick="syncDataWithBackend()" class="w-full py-2.5 rounded-xl bg-slate-900 text-white font-semibold text-sm shadow-sm active:scale-95 transition">
+        Sync with Google Sheet
+      </button>
+    </div>
+
+  </main>
+
+  <footer class="text-center py-4 text-xs text-slate-400">
+    Running locally on GitHub Pages &bull; Secured with WebAuthn
+  </footer>
+
+  <!-- Script Logic -->
+  <script>
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx96HUcW6fg2gwW6x1d9QNOsSpSGCrLfwCfWIe3PbshQ2q026wpbr-D_hvudqS9m1tIWA/exec";
+
+    // Show Toast Helper
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `pointer-events-auto px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg mb-2 transition transform translate-y-0 ${
+        type === 'error' ? 'bg-red-600 text-white' : 'bg-slate-900 text-white'
+      }`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // Check existing biometrics on load
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedEmail = localStorage.getItem('manualUserEmail');
+      if (savedEmail) {
+        document.getElementById('userEmailInput').value = savedEmail;
+      }
+
+      if (localStorage.getItem('biometric_enabled') === 'true') {
+        document.getElementById('biometricSetupBtn').textContent = 'Active';
+        document.getElementById('biometricSetupBtn').className = 'px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-600 font-bold border border-emerald-200 text-sm';
+        document.getElementById('biometricUnlockBtn').classList.remove('hidden');
+      }
+
+      document.getElementById('connectionStatus').textContent = 'Connected';
+      document.getElementById('connectionStatus').className = 'text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 font-medium';
+    });
+
+    // 1. WebAuthn Biometric Registration (Works natively on GitHub Pages domain)
+    async function setupBiometrics() {
+      try {
+        if (!window.PublicKeyCredential || !navigator.credentials) {
+          showToast('Passkeys not supported on this browser.', 'error');
+          return;
+        }
+
+        const email = document.getElementById('userEmailInput').value.trim() || 'user@shomuj.github.io';
+        localStorage.setItem('manualUserEmail', email);
+
+        const publicKeyCredentialCreationOptions = {
+          challenge: window.crypto.getRandomValues(new Uint8Array(32)),
+          rp: {
+            name: "Money Transfer Portal",
+            id: window.location.hostname // Matches shomujmiah.github.io perfectly
+          },
+          user: {
+            id: new TextEncoder().encode(email),
+            name: email,
+            displayName: "Shomuj Miah"
+          },
+          pubKeyCredParams: [
+            { alg: -7, type: "public-key" },   // ES256 (iOS Secure Enclave)
+            { alg: -257, type: "public-key" }  // RS256
+          ],
+          authenticatorSelection: {
+            authenticatorAttachment: "platform",
+            userVerification: "required",
+            residentKey: "preferred"
+          },
+          timeout: 60000,
+          attestation: "none"
+        };
+
+        const newCredential = await navigator.credentials.create({
+          publicKey: publicKeyCredentialCreationOptions
+        });
+
+        if (newCredential) {
+          const credIdB64 = btoa(String.fromCharCode.apply(null, new Uint8Array(newCredential.rawId)));
+          localStorage.setItem('deviceBiometricCredentialId', credIdB64);
+          localStorage.setItem('biometric_enabled', 'true');
+          
+          showToast('Biometric registration successful!', 'success');
+          
+          const btn = document.getElementById('biometricSetupBtn');
+          btn.textContent = 'Active';
+          btn.className = 'px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-600 font-bold border border-emerald-200 text-sm';
+          document.getElementById('biometricUnlockBtn').classList.remove('hidden');
+        }
+      } catch (error) {
+        console.error('Biometric error:', error);
+        if (error.name === 'NotAllowedError') {
+          showToast('Biometric registration cancelled.', 'error');
+        } else {
+          showToast('Error: ' + error.message, 'error');
+        }
+      }
+    }
+
+    // 2. WebAuthn Authentication
+    async function authenticateBiometrics() {
+      try {
+        const credentialIdB64 = localStorage.getItem('deviceBiometricCredentialId');
+        if (!credentialIdB64) {
+          showToast('No registered biometrics found.', 'error');
+          return;
+        }
+
+        const credentialIdBytes = Uint8Array.from(atob(credentialIdB64), c => c.charCodeAt(0));
+
+        const publicKeyCredentialRequestOptions = {
+          challenge: window.crypto.getRandomValues(new Uint8Array(32)),
+          rpId: window.location.hostname,
+          allowCredentials: [{
+            id: credentialIdBytes,
+            type: 'public-key',
+            transports: ['internal']
+          }],
+          userVerification: 'required'
+        };
+
+        const assertion = await navigator.credentials.get({
+          publicKey: publicKeyCredentialRequestOptions
+        });
+
+        if (assertion) {
+          showToast('Biometric authentication successful!', 'success');
+          // Proceed with your app actions here
+        }
+      } catch (error) {
+        console.error('Auth error:', error);
+        showToast('Authentication cancelled or failed.', 'error');
+      }
+    }
+
+    // 3. Example function communicating with Google Apps Script Backend via fetch()
+    async function syncDataWithBackend() {
+      const email = document.getElementById('userEmailInput').value.trim();
+      if (!email) {
+        showToast('Please enter an email address first.', 'error');
+        return;
+      }
+
+      showToast('Syncing with Google Sheets...', 'success');
+
+      try {
+        // Use fetch to communicate with your Google Apps Script backend
+        const response = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors', // Standard workaround for Apps Script simple POST endpoints
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'syncUser', email: email })
+        });
+        
+        showToast('Sync request sent successfully!', 'success');
+      } catch (err) {
+        console.error('Sync error:', err);
+        showToast('Failed to connect to backend.', 'error');
+      }
+    }
+  </script>
 </body>
 </html>
