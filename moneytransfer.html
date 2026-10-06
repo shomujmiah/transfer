@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Money Transfer Portal</title>
+  <title>Money Transfer</title>
   
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
@@ -14,9 +14,6 @@
   <meta name="apple-mobile-web-app-title" content="Money Transfer">
   <link rel="icon" type="image/png" href="icon-192.png">
 
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-
   <!-- OneSignal SDK Integration -->
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
@@ -25,7 +22,7 @@
       await OneSignal.init({
         appId: "6b447a69-bc05-4b52-9321-b1edba94e51c",
         allowLocalhostAsSecureOrigin: true,
-        serviceWorkerPath: "OneSignalSDK.worker.js",
+        serviceWorkerPath: "transfer/OneSignalSDK.worker.js",
         serviceWorkerParam: { scope: "/transfer/" },
         serviceWorkerScope: "/transfer/"
       });
@@ -45,290 +42,72 @@
         console.error("OneSignal login/tag error:", err);
       }
     }
+
+    // Secure message listener with GitHub Pages origin support
+    window.addEventListener("message", async function(event) {
+      const origin = event.origin || "";
+      
+      if (!origin.includes("google.com") && 
+          !origin.includes("googleusercontent.com") && 
+          !origin.includes("localhost") && 
+          !origin.includes("shomujmiah.github.io")) {
+        return; // Ignore unwanted origins silently
+      }
+
+      const data = event.data;
+      if (!data || !data.type) return; // Silently ignore messages without a valid type
+
+      console.log("DIAGNOSTIC: Received valid message type ->", data.type);
+
+      if (data.type === "TRIGGER_ONESIGNAL_PUSH") {
+        const email = data.email;
+        window.OneSignalDeferred.push(async function(OneSignal) {
+          try {
+            if (email) {
+              await OneSignal.login(email.toLowerCase().trim());
+            }
+            await OneSignal.Notifications.requestPermission();
+          } catch (e) {
+            console.error("OneSignal push error:", e);
+          }
+        });
+      }
+
+      if (data.type === "UPDATE_ONESIGNAL_MULTIPLE_TAGS") {
+        const { email, tags } = data;
+        window.OneSignalDeferred.push(async function(OneSignal) {
+          try {
+            if (email) {
+              await OneSignal.login(email.toLowerCase().trim());
+            }
+            await OneSignal.User.addTags(tags);
+            console.log("DIAGNOSTIC: Successfully updated tags in OneSignal.");
+          } catch (err) {
+            console.error("OneSignal tag error:", err);
+          }
+        });
+      }
+    });
   </script>
 
   <style>
-    /* Custom accent color variables */
-    :root {
-      --accent-color: #3b82f6;
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #fdfbf7;
     }
-    .accent-bg { background-color: var(--accent-color); }
-    .accent-text { color: var(--accent-color); }
-    .accent-border { border-color: var(--accent-color); }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
   </style>
 </head>
-<body class="bg-[#fdfbf7] dark:bg-slate-900 min-h-screen text-slate-800 dark:text-slate-100 flex flex-col justify-between transition-colors duration-200">
-
-  <!-- Toast Notification Container -->
-  <div id="toastContainer" class="fixed top-4 left-4 right-4 z-50 flex flex-col items-center pointer-events-none"></div>
-
-  <!-- Header -->
-  <header class="w-full bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex justify-between items-center shadow-sm">
-    <h1 class="font-bold text-lg text-slate-900 dark:text-white">Money Transfer Portal</h1>
-    <span id="connectionStatus" class="text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 font-medium">Connected</span>
-  </header>
-
-  <!-- Main Content Area -->
-  <main class="flex-1 max-w-md w-full mx-auto p-4 space-y-4 pb-12">
-    
-    <!-- Bank Balance / Account Card -->
-    <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
-      <div class="flex justify-between items-center">
-        <div>
-          <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Account / Identifier</p>
-          <input type="email" id="userEmailInput" placeholder="name@example.com" onchange="saveUserEmail(this.value)" class="mt-1 w-full px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-slate-50 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
-        </div>
-        <button onclick="saveSettings()" class="px-3 py-2 bg-slate-900 dark:bg-slate-700 text-white text-xs font-semibold rounded-xl active:scale-95 transition">Save</button>
-      </div>
-    </div>
-
-    <!-- Rate Alert Notification Card -->
-    <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
-      <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Rate Alert Notification</h2>
-      <p class="text-xs text-slate-500 dark:text-slate-400">Get notified when the market rate reaches or exceeds your target.</p>
-      <div class="flex gap-2">
-        <input type="number" id="rateAlertInput" value="168" step="0.1" class="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-slate-50 dark:bg-slate-900 focus:outline-none">
-        <button onclick="setRateAlert()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl shadow-sm active:scale-95 transition">Set Alert</button>
-      </div>
-    </div>
-
-    <!-- Appearance Card -->
-    <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-4">
-      <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Appearance</h2>
-      
-      <!-- Dark Mode Toggle -->
-      <div class="flex items-center justify-between">
-        <span class="text-sm font-medium">Dark Mode</span>
-        <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode(this.checked)" class="sr-only peer">
-          <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-        </label>
-      </div>
-
-      <!-- Theme Accent Color -->
-      <div>
-        <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Theme Accent Color</p>
-        <div class="flex gap-2 items-center">
-          <button onclick="setAccentColor('#3b82f6', this)" class="w-7 h-7 rounded-full bg-blue-500 ring-2 ring-offset-2 ring-blue-500 accent-swatch"></button>
-          <button onclick="setAccentColor('#ec4899', this)" class="w-7 h-7 rounded-full bg-pink-500 accent-swatch"></button>
-          <button onclick="setAccentColor('#10b981', this)" class="w-7 h-7 rounded-full bg-emerald-500 accent-swatch"></button>
-          <button onclick="setAccentColor('#6366f1', this)" class="w-7 h-7 rounded-full bg-indigo-500 accent-swatch"></button>
-          <button onclick="setAccentColor('#f59e0b', this)" class="w-7 h-7 rounded-full bg-amber-500 accent-swatch"></button>
-          <button onclick="setAccentColor('#06b6d4', this)" class="w-7 h-7 rounded-full bg-cyan-500 accent-swatch"></button>
-          <button onclick="setAccentColor('#ef4444', this)" class="w-7 h-7 rounded-full bg-red-500 accent-swatch"></button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Security & Biometrics Card -->
-    <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
-      <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Security & Biometrics</h2>
-      
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm font-medium">Biometric Login (FaceID / TouchID)</p>
-          <p class="text-xs text-slate-400">Instant device secure enclave login</p>
-        </div>
-        <button id="biometricSetupBtn" onclick="setupBiometrics()" class="px-3 py-1.5 rounded-xl bg-pink-50 text-pink-600 font-bold border border-pink-200 text-xs active:scale-95 transition">
-          Register Biometrics
-        </button>
-      </div>
-
-      <button id="biometricUnlockBtn" onclick="authenticateBiometrics()" class="w-full hidden py-2.5 rounded-xl bg-emerald-600 text-white font-semibold text-sm shadow-sm active:scale-95 transition">
-        Unlock with Biometrics
-      </button>
-
-      <hr class="border-slate-100 dark:border-slate-700 my-2">
-
-      <!-- PIN Lock -->
-      <div class="flex items-center justify-between">
-        <span class="text-sm font-medium">Enable PIN Lock</span>
-        <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" id="pinLockToggle" onchange="togglePinLock(this.checked)" class="sr-only peer">
-          <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-        </label>
-      </div>
-    </div>
-
-  </main>
-
-  <!-- App Script Logic -->
-  <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx96HUcW6fg2gwW6x1d9QNOsSpSGCrLfwCfWIe3PbshQ2q026wpbr-D_hvudqS9m1tIWA/exec";
-
-    // Toast Notification Helper
-    function showToast(message, type = 'success') {
-      const container = document.getElementById('toastContainer');
-      const toast = document.createElement('div');
-      toast.className = `pointer-events-auto px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg mb-2 transition transform translate-y-0 ${
-        type === 'error' ? 'bg-red-600 text-white' : 'bg-slate-900 text-white'
-      }`;
-      toast.textContent = message;
-      container.appendChild(toast);
-      setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => toast.remove(), 300);
-      }, 3000);
-    }
-
-    // Load saved settings on startup
-    window.addEventListener('DOMContentLoaded', () => {
-      const savedEmail = localStorage.getItem('manualUserEmail');
-      if (savedEmail) {
-        document.getElementById('userEmailInput').value = savedEmail;
-      }
-
-      // Load Dark Mode
-      if (localStorage.getItem('darkMode') === 'true') {
-        document.getElementById('darkModeToggle').checked = true;
-        document.documentElement.classList.add('dark');
-      }
-
-      // Load Accent Color
-      const savedColor = localStorage.getItem('accentColor');
-      if (savedColor) {
-        document.documentElement.style.setProperty('--accent-color', savedColor);
-      }
-
-      // Load Biometric status
-      if (localStorage.getItem('biometric_enabled') === 'true') {
-        const btn = document.getElementById('biometricSetupBtn');
-        btn.textContent = 'Biometrics Active';
-        btn.className = 'px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-600 font-bold border border-emerald-200 text-xs';
-        document.getElementById('biometricUnlockBtn')?.classList.remove('hidden');
-      }
-    });
-
-    function saveUserEmail(email) {
-      localStorage.setItem('manualUserEmail', email.trim());
-    }
-
-    function saveSettings() {
-      showToast('Settings saved successfully!');
-    }
-
-    function setRateAlert() {
-      const rate = document.getElementById('rateAlertInput').value;
-      showToast(`Rate alert set for ${rate} BDT`);
-      // Optional: Send to Apps Script backend
-    }
-
-    function toggleDarkMode(isDark) {
-      if (isDark) {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('darkMode', 'true');
-      } else {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('darkMode', 'false');
-      }
-    }
-
-    function setAccentColor(colorHex, element) {
-      document.documentElement.style.setProperty('--accent-color', colorHex);
-      localStorage.setItem('accentColor', colorHex);
-      showToast('Accent color updated');
-    }
-
-    function togglePinLock(enabled) {
-      localStorage.setItem('pinLockEnabled', enabled);
-      showToast(enabled ? 'PIN lock enabled' : 'PIN lock disabled');
-    }
-
-    // 1. WebAuthn Biometric Registration (Works perfectly on GitHub Pages domain)
-    async function setupBiometrics() {
-      try {
-        if (!window.PublicKeyCredential || !navigator.credentials) {
-          showToast('Passkeys not supported on this browser.', 'error');
-          return;
-        }
-
-        const email = document.getElementById('userEmailInput').value.trim() || 'user@shomuj.github.io';
-        localStorage.setItem('manualUserEmail', email);
-
-        const publicKeyCredentialCreationOptions = {
-          challenge: window.crypto.getRandomValues(new Uint8Array(32)),
-          rp: {
-            name: "Money Transfer Portal",
-            id: window.location.hostname // Matches shomujmiah.github.io perfectly
-          },
-          user: {
-            id: new TextEncoder().encode(email),
-            name: email,
-            displayName: "Shomuj Miah"
-          },
-          pubKeyCredParams: [
-            { alg: -7, type: "public-key" },   // ES256 (iOS Secure Enclave)
-            { alg: -257, type: "public-key" }  // RS256
-          ],
-          authenticatorSelection: {
-            authenticatorAttachment: "platform",
-            userVerification: "required",
-            residentKey: "preferred"
-          },
-          timeout: 60000,
-          attestation: "none"
-        };
-
-        const newCredential = await navigator.credentials.create({
-          publicKey: publicKeyCredentialCreationOptions
-        });
-
-        if (newCredential) {
-          const credIdB64 = btoa(String.fromCharCode.apply(null, new Uint8Array(newCredential.rawId)));
-          localStorage.setItem('deviceBiometricCredentialId', credIdB64);
-          localStorage.setItem('biometric_enabled', 'true');
-          
-          showToast('Biometric registration successful!', 'success');
-          
-          const btn = document.getElementById('biometricSetupBtn');
-          btn.textContent = 'Biometrics Active';
-          btn.className = 'px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-600 font-bold border border-emerald-200 text-xs';
-          document.getElementById('biometricUnlockBtn')?.classList.remove('hidden');
-        }
-      } catch (error) {
-        console.error('Biometric error:', error);
-        if (error.name === 'NotAllowedError') {
-          showToast('Biometric registration cancelled.', 'error');
-        } else {
-          showToast('Error: ' + error.message, 'error');
-        }
-      }
-    }
-
-    // 2. WebAuthn Authentication
-    async function authenticateBiometrics() {
-      try {
-        const credentialIdB64 = localStorage.getItem('deviceBiometricCredentialId');
-        if (!credentialIdB64) {
-          showToast('No registered biometrics found.', 'error');
-          return;
-        }
-
-        const credentialIdBytes = Uint8Array.from(atob(credentialIdB64), c => c.charCodeAt(0));
-
-        const publicKeyCredentialRequestOptions = {
-          challenge: window.crypto.getRandomValues(new Uint8Array(32)),
-          rpId: window.location.hostname,
-          allowCredentials: [{
-            id: credentialIdBytes,
-            type: 'public-key',
-            transports: ['internal']
-          }],
-          userVerification: 'required'
-        };
-
-        const assertion = await navigator.credentials.get({
-          publicKey: publicKeyCredentialRequestOptions
-        });
-
-        if (assertion) {
-          showToast('Biometric authentication successful!', 'success');
-        }
-      } catch (error) {
-        console.error('Auth error:', error);
-        showToast('Authentication cancelled or failed.', 'error');
-      }
-    }
-  </script>
+<body>
+  <iframe src="https://script.google.com/macros/s/AKfycbx96HUcW6fg2gwW6x1d9QNOsSpSGCrLfwCfWIe3PbshQ2q026wpbr-D_hvudqS9m1tIWA/exec"></iframe>
 </body>
 </html>
