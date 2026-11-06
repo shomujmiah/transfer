@@ -44,7 +44,7 @@
       }
     }
 
-    // Listen for iframe wanting to update the outer URL
+    // Capture postMessage from the iframe when user logs in successfully
     window.addEventListener("message", function(event) {
       const data = event.data;
       if (!data || !data.type) return;
@@ -53,7 +53,7 @@
         const cleanEmail = data.email.trim().toLowerCase();
         localStorage.setItem('manualUserEmail', cleanEmail);
         
-        // FORCE RELOAD OUTER WINDOW WITH EMAIL IN URL QUERY STRING!
+        // FORCE RELOAD OUTER WINDOW WITH EMAIL IN URL QUERY STRING
         const newUrl = `${window.location.pathname}?email=${encodeURIComponent(cleanEmail)}`;
         window.location.href = newUrl;
       }
@@ -80,7 +80,7 @@
     const urlParams = new URLSearchParams(window.location.search);
     let activeEmail = urlParams.get('email') || localStorage.getItem('manualUserEmail') || '';
 
-    // Self-heal: if URL lacked it but localStorage had it, reload with it
+    // Self-heal: if URL lacked query parameter but localStorage had it, reload with it
     if (!urlParams.get('email') && activeEmail) {
       window.location.replace(`${window.location.pathname}?email=${encodeURIComponent(activeEmail)}`);
     }
