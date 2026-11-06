@@ -27,7 +27,7 @@
         serviceWorkerScope: "/transfer/"
       });
 
-      const savedEmail = localStorage.getItem('manualUserEmail');
+      const savedEmail = localStorage.getItem('manualUserEmail') || getCookie('manualUserEmail');
       if (savedEmail) {
         tagAndLoginUser(OneSignal, savedEmail);
       }
@@ -43,6 +43,11 @@
       }
     }
 
+    function getCookie(name) {
+      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+      return match ? decodeURIComponent(match[2]) : '';
+    }
+
     window.addEventListener("message", async function(event) {
       const data = event.data;
       if (!data || !data.type) return;
@@ -51,7 +56,6 @@
         if (data.email) {
           localStorage.setItem('manualUserEmail', data.email);
           document.cookie = `manualUserEmail=${encodeURIComponent(data.email)}; max-age=31536000; path=/; secure; samesite=none`;
-          console.log("DEBUG WRAPPER: Saved email to localStorage & cookie:", data.email);
         }
       }
 
@@ -69,32 +73,26 @@
     iframe {
       width: 100%; height: 100%; border: none; display: block;
     }
-    #debug-banner {
-      position: fixed; top: 0; left: 0; right: 0; background: #333; color: #ff5555; 
-      font-family: monospace; font-size: 11px; padding: 4px 8px; z-index: 99999; display: none;
-    }
   </style>
 </head>
 <body>
-  <div id="debug-banner"></div>
   <script>
-    const savedEmail = localStorage.getItem('manualUserEmail') || '';
-    const cookieEmail = document.cookie.replace(/(?:(?:^|.*;\s*)manualUserEmail\s*\=\s*([^;]*).*$)|^.*$/, "$1");
+    // Robust check across LocalStorage AND persistent Cookies
+    const lsEmail = localStorage.getItem('manualUserEmail') || '';
+    const cookieEmail = getCookie('manualUserEmail') || '';
     
-    console.log("DEBUG WRAPPER BOOT -> localStorage email:", savedEmail, "| Cookie email:", cookieEmail);
-
-    // If localStorage wiped out, try recovering from cookie!
-    const activeEmail = savedEmail || decodeURIComponent(cookieEmail || '');
+    let activeEmail = lsEmail || cookieEmail;
+    
+    // Self-healing: if cookie survived but localStorage was wiped by iOS kill, sync it back!
+    if (!lsEmail && cookieEmail) {
+      localStorage.setItem('manualUserEmail', cookieEmail);
+    } else if (lsEmail && !cookieEmail) {
+      document.cookie = `manualUserEmail=${encodeURIComponent(lsEmail)}; max-age=31536000; path=/; secure; samesite=none`;
+    }
 
     const baseUrl = "https://script.google.com/macros/s/AKfycbx96HUcW6fg2gwW6x1d9QNOsSpSGCrLfwCfWIe3PbshQ2q026wpbr-D_hvudqS9m1tIWA/exec";
     const targetSrc = activeEmail ? `${baseUrl}?email=${encodeURIComponent(activeEmail)}` : baseUrl;
     
-    if (!activeEmail) {
-      const banner = document.getElementById('debug-banner');
-      banner.style.display = 'block';
-      banner.innerText = 'DIAGNOSTIC: No saved email found in storage after kill!';
-    }
-
     document.write('<iframe id="appIframe" src="' + targetSrc + '"></iframe>');
   </script>
 </body>
