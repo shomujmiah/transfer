@@ -88,7 +88,11 @@
     const baseUrl = "https://script.google.com/macros/s/AKfycbx96HUcW6fg2gwW6x1d9QNOsSpSGCrLfwCfWIe3PbshQ2q026wpbr-D_hvudqS9m1tIWA/exec";
     const targetSrc = activeEmail ? `${baseUrl}?email=${encodeURIComponent(activeEmail)}` : baseUrl;
     
-    document.write('<iframe id="appIframe" src="' + targetSrc + '"></iframe>');
+    // Safely create the iframe via DOM methods instead of document.write()
+    const iframe = document.createElement('iframe');
+    iframe.id = 'appIframe';
+    iframe.src = targetSrc;
+    document.body.appendChild(iframe);
   </script>
 </body>
 </html>
