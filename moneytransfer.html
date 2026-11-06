@@ -27,7 +27,6 @@
         serviceWorkerScope: "/transfer/"
       });
 
-      // Extract email from URL hash or fallback storage
       const hashEmail = getEmailFromHash();
       const savedEmail = hashEmail || localStorage.getItem('manualUserEmail');
       if (savedEmail) {
@@ -56,8 +55,8 @@
       return "";
     }
 
-    // Secure message listener to capture email storage from iframe
-    window.addEventListener("message", async function(event) {
+    // Capture postMessage from the iframe when user logs in successfully
+    window.addEventListener("message", function(event) {
       const data = event.data;
       if (!data || !data.type) return;
 
@@ -66,16 +65,17 @@
           const cleanEmail = data.email.trim().toLowerCase();
           localStorage.setItem('manualUserEmail', cleanEmail);
           
-          // Persist email into URL hash so iOS PWA kill cannot wipe it out
+          // Update outer wrapper URL hash so it permanently sticks for iOS PWA!
           if (window.location.hash !== `#email=${encodeURIComponent(cleanEmail)}`) {
-            window.location.hash = `email=${encodeURIComponent(cleanEmail)}`;
+            history.replaceState(null, '', `#email=${encodeURIComponent(cleanEmail)}`);
+            console.log("WRAPPER: Updated URL hash with logged-in email:", cleanEmail);
           }
         }
       }
 
       if (data.type === "CLEAR_USER_EMAIL") {
         localStorage.removeItem('manualUserEmail');
-        window.location.hash = "";
+        history.replaceState(null, '', window.location.pathname);
       }
     });
   </script>
@@ -87,11 +87,15 @@
     iframe {
       width: 100%; height: 100%; border: none; display: block;
     }
+    #debug-banner {
+      position: fixed; top: 0; left: 0; right: 0; background: #333; color: #ff5555; 
+      font-family: monospace; font-size: 11px; padding: 4px 8px; z-index: 99999; display: none;
+    }
   </style>
 </head>
 <body>
+  <div id="debug-banner"></div>
   <script>
-    // Grab email from URL hash first (survives iOS PWA kills), fallback to localStorage
     function getEmailFromHash() {
       const hash = window.location.hash;
       if (hash.includes("email=")) {
@@ -116,6 +120,12 @@
     const baseUrl = "https://script.google.com/macros/s/AKfycbx96HUcW6fg2gwW6x1d9QNOsSpSGCrLfwCfWIe3PbshQ2q026wpbr-D_hvudqS9m1tIWA/exec";
     const targetSrc = activeEmail ? `${baseUrl}?email=${encodeURIComponent(activeEmail)}` : baseUrl;
     
+    if (!activeEmail) {
+      const banner = document.getElementById('debug-banner');
+      banner.style.display = 'block';
+      banner.innerText = 'DIAGNOSTIC: No saved email found in storage after kill!';
+    }
+
     document.write('<iframe id="appIframe" src="' + targetSrc + '"></iframe>');
   </script>
 </body>
