@@ -45,23 +45,26 @@
 
     // Secure message listener to capture email storage & notifications from iframe
     window.addEventListener("message", async function(event) {
-      const origin = event.origin || "";
-      if (!origin.includes("google.com") && !origin.includes("googleusercontent.com") && !origin.includes("localhost") && !origin.includes("shomujmiah.github.io")) {
-        return;
-      }
+    const origin = event.origin || "";
+    if (!origin.includes("google.com") && !origin.includes("googleusercontent.com") && !origin.includes("localhost") && !origin.includes("shomujmiah.github.io")) {
+      return;
+    }
 
-      const data = event.data;
-      if (!data || !data.type) return;
+    const data = event.data;
+    if (!data || !data.type) return;
 
-      if (data.type === "SAVE_USER_EMAIL") {
-        if (data.email) {
-          localStorage.setItem('manualUserEmail', data.email);
-        }
+    if (data.type === "SAVE_USER_EMAIL") {
+      if (data.email) {
+        localStorage.setItem('manualUserEmail', data.email);
+        // Write a 1-year cookie so the browser sends it across iframe boundaries
+        document.cookie = `manualUserEmail=${encodeURIComponent(data.email)}; max-age=31536000; path=/; secure; samesite=none`;
       }
+    }
 
-      if (data.type === "CLEAR_USER_EMAIL") {
-        localStorage.removeItem('manualUserEmail');
-      }
+    if (data.type === "CLEAR_USER_EMAIL") {
+      localStorage.removeItem('manualUserEmail');
+      document.cookie = "manualUserEmail=; max-age=0; path=/; secure; samesite=none";
+    }
 
       if (data.type === "TRIGGER_ONESIGNAL_PUSH") {
         const email = data.email;
