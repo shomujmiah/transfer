@@ -27,10 +27,9 @@
         serviceWorkerScope: "/transfer/"
       });
 
-      const urlParams = new URLSearchParams(window.location.search);
-      const email = urlParams.get('email') || localStorage.getItem('manualUserEmail');
-      if (email) {
-        tagAndLoginUser(OneSignal, email);
+      const savedEmail = localStorage.getItem('manualUserEmail');
+      if (savedEmail) {
+        tagAndLoginUser(OneSignal, savedEmail);
       }
     });
 
@@ -44,55 +43,71 @@
       }
     }
 
-    // Listen for iframe wanting to save user email and reload wrapper with query param
-    window.addEventListener("message", function(event) {
-      const data = event.data;
-      if (!data || !data.type) return;
-
-      if (data.type === "SAVE_USER_EMAIL" && data.email) {
-        const cleanEmail = data.email.trim().toLowerCase();
-        localStorage.setItem('manualUserEmail', cleanEmail);
-        
-        // Force reload wrapper with email in URL query string
-        const newUrl = `${window.location.pathname}?email=${encodeURIComponent(cleanEmail)}`;
-        window.location.href = newUrl;
+    // Secure message listener with GitHub Pages origin support
+    window.addEventListener("message", async function(event) {
+      const origin = event.origin || "";
+      
+      if (!origin.includes("google.com") && 
+          !origin.includes("googleusercontent.com") && 
+          !origin.includes("localhost") && 
+          !origin.includes("shomujmiah.github.io")) {
+        return; // Ignore unwanted origins silently
       }
 
-      if (data.type === "CLEAR_USER_EMAIL") {
-        localStorage.removeItem('manualUserEmail');
-        window.location.href = window.location.pathname;
+      const data = event.data;
+      if (!data || !data.type) return; // Silently ignore messages without a valid type
+
+      console.log("DIAGNOSTIC: Received valid message type ->", data.type);
+
+      if (data.type === "TRIGGER_ONESIGNAL_PUSH") {
+        const email = data.email;
+        window.OneSignalDeferred.push(async function(OneSignal) {
+          try {
+            if (email) {
+              await OneSignal.login(email.toLowerCase().trim());
+            }
+            await OneSignal.Notifications.requestPermission();
+          } catch (e) {
+            console.error("OneSignal push error:", e);
+          }
+        });
+      }
+
+      if (data.type === "UPDATE_ONESIGNAL_MULTIPLE_TAGS") {
+        const { email, tags } = data;
+        window.OneSignalDeferred.push(async function(OneSignal) {
+          try {
+            if (email) {
+              await OneSignal.login(email.toLowerCase().trim());
+            }
+            await OneSignal.User.addTags(tags);
+            console.log("DIAGNOSTIC: Successfully updated tags in OneSignal.");
+          } catch (err) {
+            console.error("OneSignal tag error:", err);
+          }
+        });
       }
     });
   </script>
 
   <style>
     html, body {
-      margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #fdfbf7;
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #fdfbf7;
     }
     iframe {
-      width: 100%; height: 100%; border: none; display: block;
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
     }
   </style>
 </head>
 <body>
-  <script>
-    // Extract email from URL query string (?email=...) or fallback storage
-    const urlParams = new URLSearchParams(window.location.search);
-    let activeEmail = urlParams.get('email') || localStorage.getItem('manualUserEmail') || '';
-
-    // Self-heal: if URL lacked query parameter but localStorage had it, reload with it
-    if (!urlParams.get('email') && activeEmail) {
-      window.location.replace(`${window.location.pathname}?email=${encodeURIComponent(activeEmail)}`);
-    }
-
-    const baseUrl = "https://script.google.com/macros/s/AKfycbx96HUcW6fg2gwW6x1d9QNOsSpSGCrLfwCfWIe3PbshQ2q026wpbr-D_hvudqS9m1tIWA/exec";
-    const targetSrc = activeEmail ? `${baseUrl}?email=${encodeURIComponent(activeEmail)}` : baseUrl;
-    
-    // Safely create the iframe via DOM methods instead of document.write()
-    const iframe = document.createElement('iframe');
-    iframe.id = 'appIframe';
-    iframe.src = targetSrc;
-    document.body.appendChild(iframe);
-  </script>
+  <iframe src="https://script.google.com/macros/s/AKfycbx96HUcW6fg2gwW6x1d9QNOsSpSGCrLfwCfWIe3PbshQ2q026wpbr-D_hvudqS9m1tIWA/exec"></iframe>
 </body>
 </html>
