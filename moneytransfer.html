@@ -27,10 +27,10 @@
         serviceWorkerScope: "/transfer/"
       });
 
-      const hashEmail = getEmailFromHash();
-      const savedEmail = hashEmail || localStorage.getItem('manualUserEmail');
-      if (savedEmail) {
-        tagAndLoginUser(OneSignal, savedEmail);
+      const urlParams = new URLSearchParams(window.location.search);
+      const email = urlParams.get('email') || localStorage.getItem('manualUserEmail');
+      if (email) {
+        tagAndLoginUser(OneSignal, email);
       }
     });
 
@@ -44,38 +44,23 @@
       }
     }
 
-    function getEmailFromHash() {
-      const hash = window.location.hash;
-      if (hash.includes("email=")) {
-        const match = hash.match(/email=([^&]+)/);
-        if (match && match[1]) {
-          return decodeURIComponent(match[1]);
-        }
-      }
-      return "";
-    }
-
-    // Capture postMessage from the iframe when user logs in successfully
+    // Listen for iframe wanting to update the outer URL
     window.addEventListener("message", function(event) {
       const data = event.data;
       if (!data || !data.type) return;
 
-      if (data.type === "SAVE_USER_EMAIL") {
-        if (data.email) {
-          const cleanEmail = data.email.trim().toLowerCase();
-          localStorage.setItem('manualUserEmail', cleanEmail);
-          
-          // Update outer wrapper URL hash so it permanently sticks for iOS PWA!
-          if (window.location.hash !== `#email=${encodeURIComponent(cleanEmail)}`) {
-            history.replaceState(null, '', `#email=${encodeURIComponent(cleanEmail)}`);
-            console.log("WRAPPER: Updated URL hash with logged-in email:", cleanEmail);
-          }
-        }
+      if (data.type === "SAVE_USER_EMAIL" && data.email) {
+        const cleanEmail = data.email.trim().toLowerCase();
+        localStorage.setItem('manualUserEmail', cleanEmail);
+        
+        // FORCE RELOAD OUTER WINDOW WITH EMAIL IN URL QUERY STRING!
+        const newUrl = `${window.location.pathname}?email=${encodeURIComponent(cleanEmail)}`;
+        window.location.href = newUrl;
       }
 
       if (data.type === "CLEAR_USER_EMAIL") {
         localStorage.removeItem('manualUserEmail');
-        history.replaceState(null, '', window.location.pathname);
+        window.location.href = window.location.pathname;
       }
     });
   </script>
@@ -87,45 +72,22 @@
     iframe {
       width: 100%; height: 100%; border: none; display: block;
     }
-    #debug-banner {
-      position: fixed; top: 0; left: 0; right: 0; background: #333; color: #ff5555; 
-      font-family: monospace; font-size: 11px; padding: 4px 8px; z-index: 99999; display: none;
-    }
   </style>
 </head>
 <body>
-  <div id="debug-banner"></div>
   <script>
-    function getEmailFromHash() {
-      const hash = window.location.hash;
-      if (hash.includes("email=")) {
-        const match = hash.match(/email=([^&]+)/);
-        if (match && match[1]) {
-          return decodeURIComponent(match[1]);
-        }
-      }
-      return "";
-    }
+    // Extract email from URL query string (?email=...) or fallback storage
+    const urlParams = new URLSearchParams(window.location.search);
+    let activeEmail = urlParams.get('email') || localStorage.getItem('manualUserEmail') || '';
 
-    const hashEmail = getEmailFromHash();
-    const lsEmail = localStorage.getItem('manualUserEmail') || '';
-    let activeEmail = hashEmail || lsEmail;
-
-    // Self-heal hash if missing but localStorage had it
-    if (!hashEmail && lsEmail) {
-      history.replaceState(null, '', `#email=${encodeURIComponent(lsEmail)}`);
-      activeEmail = lsEmail;
+    // Self-heal: if URL lacked it but localStorage had it, reload with it
+    if (!urlParams.get('email') && activeEmail) {
+      window.location.replace(`${window.location.pathname}?email=${encodeURIComponent(activeEmail)}`);
     }
 
     const baseUrl = "https://script.google.com/macros/s/AKfycbx96HUcW6fg2gwW6x1d9QNOsSpSGCrLfwCfWIe3PbshQ2q026wpbr-D_hvudqS9m1tIWA/exec";
     const targetSrc = activeEmail ? `${baseUrl}?email=${encodeURIComponent(activeEmail)}` : baseUrl;
     
-    if (!activeEmail) {
-      const banner = document.getElementById('debug-banner');
-      banner.style.display = 'block';
-      banner.innerText = 'DIAGNOSTIC: No saved email found in storage after kill!';
-    }
-
     document.write('<iframe id="appIframe" src="' + targetSrc + '"></iframe>');
   </script>
 </body>
